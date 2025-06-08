@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
@@ -13,6 +13,9 @@ import {
   Star,
   MapPin
 } from 'lucide-react-native';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../firebase';
+import { useGlobalContext } from '../context/GlobalProvider';
 
 const menuItems = [
   {
@@ -61,9 +64,34 @@ const menuItems = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { user } = useGlobalContext();
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      // Navigation will be handled by the auth state listener in GlobalProvider
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to log out. Please try again.');
+    }
+  };
 
   const handleLogout = () => {
-    router.replace('/auth');
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
   };
 
   const renderMenuItem = (item: any, index: number) => (
@@ -93,8 +121,10 @@ export default function ProfileScreen() {
               style={styles.avatar}
             />
             <View style={styles.profileInfo}>
-              <Text style={styles.name}>John Smith</Text>
-              <Text style={styles.email}>john.smith@email.com</Text>
+              <Text style={styles.name}>
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </Text>
+              <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
               <View style={styles.locationContainer}>
                 <MapPin size={14} color="#6C757D" />
                 <Text style={styles.location}>Bangalore, India</Text>

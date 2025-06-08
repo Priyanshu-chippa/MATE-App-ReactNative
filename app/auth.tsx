@@ -1,28 +1,111 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  const signUp = async () => {
+    if (!email || !password || !username) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', newUser.uid), {
+        uid: newUser.uid,
+        email: email.toLowerCase(),
+        username: username,
+        createdAt: new Date().toISOString(),
+      });
+
+      Alert.alert('Success', 'Account created successfully!');
+      // Navigation will be handled by the auth state listener in GlobalProvider
+    } catch (error) {
+      console.error('Sign up error:', error);
+      Alert.alert('Error', error.message || 'Failed to create account');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signIn = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // Navigation will be handled by the auth state listener in GlobalProvider
+    } catch (error) {
+      console.error('Sign in error:', error);
+      let errorMessage = 'Failed to sign in';
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later';
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleAuth = () => {
-    // Simulate authentication
-    router.replace('/(tabs)');
+    if (isLogin) {
+      signIn();
+    } else {
+      signUp();
+    }
   };
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setEmail('');
     setPassword('');
+    setUsername('');
     setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   return (
@@ -36,6 +119,20 @@ export default function AuthScreen() {
         </View>
 
         <View style={styles.formContainer}>
+          {!isLogin && (
+            <View style={styles.inputContainer}>
+              <User size={20} color="#6C757D" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                placeholderTextColor="#6C757D"
+              />
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
             <Mail size={20} color="#6C757D" style={styles.inputIcon} />
             <TextInput
@@ -95,9 +192,13 @@ export default function AuthScreen() {
             </View>
           )}
 
-          <TouchableOpacity style={styles.authButton} onPress={handleAuth}>
+          <TouchableOpacity 
+            style={[styles.authButton, isLoading && styles.authButtonDisabled]} 
+            onPress={handleAuth}
+            disabled={isLoading}
+          >
             <Text style={styles.authButtonText}>
-              {isLogin ? 'Login' : 'Sign Up'}
+              {isLoading ? 'Please wait...' : (isLogin ? 'Login' : 'Sign Up')}
             </Text>
           </TouchableOpacity>
 
@@ -199,6 +300,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     marginBottom: 16,
+  },
+  authButtonDisabled: {
+    backgroundColor: '#6C757D',
   },
   authButtonText: {
     fontSize: 16,
