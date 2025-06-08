@@ -1,18 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { 
-  User, 
-  Heart, 
-  Home, 
-  CreditCard, 
-  Shield, 
-  Settings, 
-  LogOut,
-  ChevronRight,
-  Star,
-  MapPin
-} from 'lucide-react-native';
+import { User, Heart, Chrome as Home, CreditCard, Shield, Settings, LogOut, ChevronRight, Star, MapPin } from 'lucide-react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useGlobalContext } from '../context/GlobalProvider';
